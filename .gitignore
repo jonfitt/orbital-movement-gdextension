@@ -1,0 +1,6 @@
+/target
+/dist
+# Godot 4 demo project
+/godot/.godot/
+# IDE and local tooling
+.idea/

@@ -1,0 +1,42 @@
+[workspace]
+members = [
+    ".",
+    "examples/orbital_movement_gdextension_cli",
+    "extensions/orbital_movement_gdextension_gd",
+
+    "examples/orbital_movement_gdextension_visualizer",
+
+]
+default-members = [".", "extensions/orbital_movement_gdextension_gd"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+
+license-file = "LICENSE"
+
+
+# Workspace layout:
+# - orbital_movement_gdextension (root): core library
+# - examples/orbital_movement_gdextension_cli: native CLI demo
+
+# - examples/orbital_movement_gdextension_visualizer: Bevy visualizer
+
+# - extensions/orbital_movement_gdextension_gd: Godot 4 GDExtension (cdylib)
+
+[package]
+name = "orbital_movement_gdextension"
+version.workspace = true
+edition = "2024"
+description = "Orbital Movement Gdextension — Rust library with Godot 4 GDExtension bindings"
+
+authors = ["Jonathan Fitt <jonfitt@yahoo.com>"]
+
+
+license-file.workspace = true
+
+
+[dependencies]
+thiserror = "2"
+
+[dev-dependencies]

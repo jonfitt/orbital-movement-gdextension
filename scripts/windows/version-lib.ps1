@@ -1,0 +1,213 @@
+# Sync VERSION into Cargo.toml, Cargo.lock, and docs/description.md.
+$ErrorActionPreference = "Stop"
+
+function Get-RepoRoot {
+    $root = git rev-parse --show-toplevel 2>$null
+    if (-not $root) {
+        throw "Not inside a git repository."
+    }
+    return $root
+}
+
+function Read-ProjectVersion {
+    param([string]$Root)
+
+    $versionFile = Join-Path $Root "VERSION"
+    if (-not (Test-Path $versionFile)) {
+        throw "Missing VERSION file at $versionFile"
+    }
+
+    $version = (Get-Content -Raw $versionFile).Trim()
+    if ($version -notmatch '^\d+\.\d+\.\d+$') {
+        throw "VERSION must be semver major.minor.patch, got: $version"
+    }
+    return $version
+}
+
+function Update-LockfileVersions {
+    param(
+        [string]$LockPath,
+        [string]$Version
+    )
+
+    $packageNames = @(
+        "orbital_movement_gdextension",
+        "orbital_movement_gdextension_gd",
+        "orbital_movement_gdextension_cli",
+        "orbital_movement_gdextension_visualizer"
+    )
+    $lines = Get-Content $LockPath
+    $updateNext = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^name = "([^"]+)"$' -and $packageNames -contains $Matches[1]) {
+            $updateNext = $true
+        } elseif ($updateNext -and $lines[$i] -match '^version = "') {
+            $lines[$i] = "version = `"$Version`""
+            $updateNext = $false
+        }
+    }
+    Set-Content -Path $LockPath -Value $lines
+}
+
+function Sync-ProjectVersion {
+    param([string]$Root)
+
+    $version = Read-ProjectVersion -Root $Root
+    $cargoToml = Join-Path $Root "Cargo.toml"
+    $descriptionMd = Join-Path $Root "docs/description.md"
+
+    if (-not (Test-Path $cargoToml)) {
+        throw "Missing Cargo.toml at $cargoToml"
+    }
+
+    $cargoText = Get-Content -Raw $cargoToml
+    $cargoPattern = '(?ms)(\[workspace\.package\][\s\S]*?^version = ")[^"]+(")'
+    if ($cargoText -notmatch $cargoPattern) {
+        throw "Could not find [workspace.package] version in Cargo.toml"
+    }
+    $cargoText = [regex]::Replace($cargoText, $cargoPattern, "`${1}$version`${2}", 1)
+    Set-Content -NoNewline -Path $cargoToml -Value $cargoText
+
+    if (Test-Path $descriptionMd) {
+        $docText = Get-Content -Raw $descriptionMd
+        $docPattern = '(name = "orbital_movement_gdextension"(?:\r?\n)version = ")[^"]+(")'
+        if ($docText -match $docPattern) {
+            $docText = [regex]::Replace($docText, $docPattern, "`${1}$version`${2}", 1)
+            Set-Content -NoNewline -Path $descriptionMd -Value $docText
+        }
+    }
+
+    $cargoLock = Join-Path $Root "Cargo.lock"
+    if (Test-Path $cargoLock) {
+        Update-LockfileVersions -LockPath $cargoLock -Version $version
+    }
+
+    return $version
+}
+
+function Test-ProjectVersionSync {
+    param([string]$Root)
+
+    $version = Read-ProjectVersion -Root $Root
+    $cargoToml = Join-Path $Root "Cargo.toml"
+    $descriptionMd = Join-Path $Root "docs/description.md"
+
+    $cargoText = Get-Content -Raw $cargoToml
+    if ($cargoText -match '(?ms)^\[workspace\.package\][\s\S]*?^version = "([^"]+)"') {
+        $cargoVersion = $Matches[1]
+    } else {
+        throw "Could not find [workspace.package] version in Cargo.toml"
+    }
+
+    if ($cargoVersion -ne $version) {
+        throw "VERSION ($version) does not match Cargo.toml workspace.package.version ($cargoVersion). Run scripts\windows\sync-version.cmd"
+    }
+
+    if (Test-Path $descriptionMd) {
+        $docText = Get-Content -Raw $descriptionMd
+        if ($docText -match 'name = "orbital_movement_gdextension"(?:\r?\n)version = "([^"]+)"') {
+            $docVersion = $Matches[1]
+            if ($docVersion -ne $version) {
+                throw "VERSION ($version) does not match docs/description.md example ($docVersion). Run scripts\windows\sync-version.cmd"
+            }
+        }
+    }
+
+    $cargoLock = Join-Path $Root "Cargo.lock"
+    if (Test-Path $cargoLock) {
+        $lockText = Get-Content -Raw $cargoLock
+        if ($lockText -match '(?ms)^name = "orbital_movement_gdextension"\r?\nversion = "([^"]+)"') {
+            $lockVersion = $Matches[1]
+            if ($lockVersion -ne $version) {
+                throw "VERSION ($version) does not match Cargo.lock orbital_movement_gdextension version ($lockVersion). Run scripts\windows\sync-version.cmd"
+            }
+        } else {
+            throw "Could not find orbital_movement_gdextension version in Cargo.lock"
+        }
+    }
+}
+
+function Invoke-VersionBump {
+    param(
+        [string]$BumpKind,
+        [switch]$NoCommit
+    )
+
+    $root = Get-RepoRoot
+    Set-Location $root
+
+    $current = Read-ProjectVersion -Root $root
+    $parts = $current.Split(".")
+    $major = [int]$parts[0]
+    $minor = [int]$parts[1]
+    $patch = [int]$parts[2]
+
+    if (-not $BumpKind) {
+        Write-Host "Current version: $current"
+        Write-Host ""
+        Write-Host "Select bump type:"
+        Write-Host "  1) major ($major -> $($major + 1).0.0)"
+        Write-Host "  2) minor ($major.$minor -> $major.$($minor + 1).0)"
+        Write-Host "  3) patch ($current -> $major.$minor.$($patch + 1))"
+        Write-Host ""
+        $choice = Read-Host "Enter 1, 2, or 3 [3]"
+        if (-not $choice) { $choice = "3" }
+        switch ($choice) {
+            "1" { $BumpKind = "major" }
+            "2" { $BumpKind = "minor" }
+            "3" { $BumpKind = "patch" }
+            "major" { $BumpKind = "major" }
+            "minor" { $BumpKind = "minor" }
+            "patch" { $BumpKind = "patch" }
+            default { throw "Invalid choice: $choice" }
+        }
+    }
+
+    switch ($BumpKind) {
+        "major" {
+            $major += 1
+            $minor = 0
+            $patch = 0
+        }
+        "minor" {
+            $minor += 1
+            $patch = 0
+        }
+        "patch" {
+            $patch += 1
+        }
+        default {
+            throw "Bump kind must be major, minor, or patch"
+        }
+    }
+
+    $newVersion = "$major.$minor.$patch"
+    $tag = "v$newVersion"
+
+    if (git tag -l $tag) {
+        throw "Tag already exists: $tag"
+    }
+
+    Set-Content -NoNewline -Path (Join-Path $root "VERSION") -Value "$newVersion`n"
+    $synced = Sync-ProjectVersion -Root $root
+    if ($synced -ne $newVersion) {
+        throw "Sync failed: expected $newVersion, got $synced"
+    }
+
+    Write-Host "Bumped version: $current -> $newVersion"
+
+    if (-not $NoCommit) {
+        git add VERSION Cargo.toml Cargo.lock docs/description.md
+        $staged = git diff --cached --name-only
+        if ($staged) {
+            git commit -m "Bump version to $newVersion"
+        }
+        git tag -a $tag -m "Release $tag"
+        Write-Host "Created commit and annotated tag $tag."
+        Write-Host "Push with:"
+        Write-Host "  git push origin HEAD"
+        Write-Host "  git push origin $tag"
+    } else {
+        Write-Host "Updated files only (-NoCommit). Review changes, then commit and tag manually."
+    }
+}

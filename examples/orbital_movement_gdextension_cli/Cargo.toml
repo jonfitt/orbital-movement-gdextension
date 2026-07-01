@@ -1,0 +1,16 @@
+[package]
+name = "orbital_movement_gdextension_cli"
+version.workspace = true
+edition = "2024"
+publish = false
+description = "CLI demo for orbital_movement_gdextension"
+
+license-file.workspace = true
+
+
+[[bin]]
+name = "orbital_movement_gdextension_cli"
+path = "src/main.rs"
+
+[dependencies]
+orbital_movement_gdextension = { path = "../.." }

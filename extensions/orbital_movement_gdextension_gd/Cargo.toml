@@ -1,0 +1,16 @@
+[package]
+name = "orbital_movement_gdextension_gd"
+version.workspace = true
+edition = "2024"
+publish = false
+description = "Godot 4 GDExtension bindings for orbital_movement_gdextension"
+
+license-file.workspace = true
+
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+orbital_movement_gdextension = { path = "../.." }
+godot = { version = "0.5.4", features = ["register-docs"] }
