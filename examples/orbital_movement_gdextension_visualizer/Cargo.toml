@@ -1,0 +1,17 @@
+[package]
+name = "orbital_movement_gdextension_visualizer"
+version.workspace = true
+edition = "2024"
+publish = false
+description = "Bevy visualizer for orbital_movement_gdextension"
+
+license-file.workspace = true
+
+
+[[bin]]
+name = "orbital_movement_gdextension_visualizer"
+path = "src/main.rs"
+
+[dependencies]
+bevy = { version = "0.16", default-features = true, features = ["bevy_ui"] }
+orbital_movement_gdextension = { path = "../.." }

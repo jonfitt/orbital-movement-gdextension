@@ -1,0 +1,11 @@
+[configuration]
+
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.3
+reloadable = false
+
+[libraries]
+
+linux.release.x86_64 = "res://addons/orbital_movement_gdextension/bin/linux/x86_64/liborbital_movement_gdextension_gd.so"
+windows.release.x86_64 = "res://addons/orbital_movement_gdextension/bin/windows/x86_64/orbital_movement_gdextension_gd.dll"
+macos.release.arm64 = "res://addons/orbital_movement_gdextension/bin/macos/arm64/liborbital_movement_gdextension_gd.dylib"
