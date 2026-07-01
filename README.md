@@ -8,9 +8,7 @@ Orbital Movement Gdextension — Rust library with Godot 4 GDExtension bindings
 |--------------|------|
 | [`orbital_movement_gdextension`](./) | Core library |
 | [`examples/orbital_movement_gdextension_cli`](./examples/orbital_movement_gdextension_cli/) | Native CLI demo |
-
 | [`examples/orbital_movement_gdextension_visualizer`](./examples/orbital_movement_gdextension_visualizer/) | Bevy visualizer |
-
 | [`extensions/orbital_movement_gdextension_gd`](./extensions/orbital_movement_gdextension_gd/) | Godot 4 GDExtension |
 | [`godot/`](./godot/) | Godot 4 demo project |
 
