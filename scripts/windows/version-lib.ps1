@@ -39,7 +39,7 @@ function Update-LockfileVersions {
     $lines = Get-Content $LockPath
     $updateNext = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^name = "([^"]+)"$' -and $packageNames -contains $Matches[1]) {
+        if ($lines[$i] -match '^name = "([^"]+)"\r?$' -and $packageNames -contains $Matches[1]) {
             $updateNext = $true
         } elseif ($updateNext -and $lines[$i] -match '^version = "') {
             $lines[$i] = "version = `"$Version`""

@@ -6,8 +6,8 @@ set -euo pipefail
 read_lockfile_version() {
   local lockfile="${1:?}"
   perl -ne '
-    if (/^name = "orbital_movement_gdextension"$/) { $want = 1 }
-    elsif ($want && /^version = "([^"]+)"/) { print $1; exit }
+    if (/^name = "orbital_movement_gdextension"\r?$/) { $want = 1 }
+    elsif ($want && /^version = "([^"]+)"\r?$/) { print $1; exit }
   ' "${lockfile}"
 }
 
@@ -15,7 +15,7 @@ sync_lockfile_versions() {
   local lockfile="${1:?}"
   local version="${2:?}"
   perl -i -pe '
-    if (/^name = "(?:orbital_movement_gdextension|orbital_movement_gdextension_gd|orbital_movement_gdextension_cli|orbital_movement_gdextension_visualizer)"$/) { $want = 1 }
+    if (/^name = "(?:orbital_movement_gdextension|orbital_movement_gdextension_gd|orbital_movement_gdextension_cli|orbital_movement_gdextension_visualizer)"\r?$/) { $want = 1 }
     elsif ($want && /^version = "/) {
       s/^version = "[^"]+"/version = "'"${version}"'"/;
       $want = 0;
