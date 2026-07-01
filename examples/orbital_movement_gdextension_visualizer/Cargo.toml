@@ -13,5 +13,5 @@ name = "orbital_movement_gdextension_visualizer"
 path = "src/main.rs"
 
 [dependencies]
-bevy = { version = "0.16", default-features = true, features = ["bevy_ui"] }
+bevy = { version = "0.19", default-features = true, features = ["bevy_ui"] }
 orbital_movement_gdextension = { path = "../.." }
