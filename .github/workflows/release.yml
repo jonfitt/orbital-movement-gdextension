@@ -70,7 +70,7 @@ jobs:
             "artifacts/windows-x86_64/orbital_movement_gdextension_gd.dll" \
             "artifacts/macos-arm64/liborbital_movement_gdextension_gd.dylib"
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/orbital_movement_gdextension-*.zip
