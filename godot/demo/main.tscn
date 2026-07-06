@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://orbitalmovementgdextensionmainscn"]
+[gd_scene load_steps=7 format=3 uid="uid://orbitalmovementgdextensionmainscn"]
 
 [ext_resource type="Script" path="res://demo/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://demo/visible_cap.gd" id="2_cap"]
 [ext_resource type="Script" path="res://demo/planet_surface.gd" id="3_planet"]
+[ext_resource type="Script" path="res://demo/ground_track.gd" id="4_track"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_planet"]
 radius = 1.0
@@ -29,6 +30,9 @@ current = true
 
 [node name="VisibleCap" type="MeshInstance3D" parent="."]
 script = ExtResource("2_cap")
+
+[node name="GroundTrack" type="Node3D" parent="."]
+script = ExtResource("4_track")
 
 [node name="Satellite" type="MeshInstance3D" parent="."]
 mesh = SubResource("SphereMesh_satellite")
@@ -69,7 +73,7 @@ value = 1.78
 offset_left = 16.0
 offset_top = 140.0
 offset_right = 360.0
-offset_bottom = 580.0
+offset_bottom = 612.0
 
 [node name="OrbitPanel" type="VBoxContainer" parent="CanvasLayer/ControlPanel"]
 layout_mode = 2
@@ -140,6 +144,21 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Transfer burn"
 
+[node name="TransferThrustRow" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TransferThrustLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/TransferThrustRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+text = "Transfer thrust"
+
+[node name="TransferThrustEdit" type="LineEdit" parent="CanvasLayer/ControlPanel/OrbitPanel/TransferThrustRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0.002"
+tooltip_text = "Max thrust used for guided transfer burns and viability checks"
+
 [node name="TransferStatusRow" type="VBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
 layout_mode = 2
 theme_override_constants/separation = 4
@@ -206,3 +225,7 @@ text = "Down (radial in)"
 [node name="ThrustToggle" type="Button" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
 layout_mode = 2
 text = "Thrust OFF"
+
+[node name="TrackToggle" type="Button" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
+layout_mode = 2
+text = "Ground track OFF"
