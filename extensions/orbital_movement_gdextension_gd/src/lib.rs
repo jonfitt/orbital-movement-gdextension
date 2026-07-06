@@ -19,9 +19,9 @@ use orbital_movement_gdextension::{
     BodyId, BodyState, CentralBody, HIGH_INCLINATION_RAD, LOW_EARTH_INCLINATION_RAD,
     MOLNIYA_APOGEE_ALTITUDE_R, MOLNIYA_PERIGEE_ALTITUDE_R, OrbitParams, OrbitType, Simulation,
     SimulationScale, StarConfig, SurfaceTessellationConfig, TransferAvailability,
-    TransferBurnStatus, TransferViabilityConfig,
-    Vec3, build_orbit_params_from_ui, orbit_ui_defaults, orbit_uses_computed_altitude,
-    orbit_uses_elliptical_params, orbit_uses_inclination_param,
+    TransferBurnStatus, TransferViabilityConfig, Vec3, build_orbit_params_from_ui,
+    orbit_ui_defaults, orbit_uses_computed_altitude, orbit_uses_elliptical_params,
+    orbit_uses_inclination_param,
 };
 
 struct OrbitalMovementGdextensionExtension;
@@ -518,7 +518,7 @@ impl OrbitalSimulation {
         max_points: i64,
         display_radius: f64,
     ) -> godot::builtin::VarDictionary {
-        use godot::builtin::{PackedVector3Array, Variant, VarDictionary};
+        use godot::builtin::{PackedVector3Array, VarDictionary, Variant};
 
         let mut result = VarDictionary::new();
         let max_points = max_points.clamp(8, 2048) as usize;
@@ -535,7 +535,10 @@ impl OrbitalSimulation {
             result.set("ground_line_vertices", &empty);
             result.set("corridor_vertices", &empty);
             result.set("corridor_normals", &empty);
-            result.set("corridor_indices", &Variant::from(godot::builtin::PackedInt32Array::new()));
+            result.set(
+                "corridor_indices",
+                &Variant::from(godot::builtin::PackedInt32Array::new()),
+            );
             result.set("ephemeral", false);
             return result;
         };
@@ -585,7 +588,11 @@ impl OrbitalSimulation {
             })
             .and_then(|r| r.ok());
         let Some(mesh) = mesh else {
-            Self::push_surface_mesh(&mut result, "cap", &orbital_movement_gdextension::SurfaceMesh::default());
+            Self::push_surface_mesh(
+                &mut result,
+                "cap",
+                &orbital_movement_gdextension::SurfaceMesh::default(),
+            );
             return result;
         };
         Self::push_surface_mesh(&mut result, "cap", &mesh);

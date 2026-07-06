@@ -11,8 +11,8 @@ pub mod error;
 
 mod central_body;
 mod collision;
-mod ground_track;
 mod gravity;
+mod ground_track;
 mod integrator;
 mod math;
 mod orbits;
@@ -30,7 +30,8 @@ mod visibility;
 pub use central_body::CentralBody;
 pub use error::ProjectError;
 pub use ground_track::{
-    OrbitalSurfaceTrack, is_ephemeral_trajectory, orbital_surface_track, project_to_surface,
+    OrbitalSurfaceTrack, OrbitalSurfaceTrackInput, is_ephemeral_trajectory, orbital_surface_track,
+    project_to_surface,
 };
 pub use math::Vec3;
 pub use orbits::{
@@ -44,11 +45,11 @@ pub use orbits::{
 };
 pub use simulation::Simulation;
 pub use small_body::{BodyId, BodyState};
+pub use star::{StarConfig, ecliptic_plane_normal};
 pub use surface_geometry::{
     SurfaceMesh, SurfaceTessellationConfig, angular_distance, ground_track_is_closed,
     slerp_direction, tessellate_spherical_corridor, tessellate_spherical_polyline,
 };
-pub use star::{StarConfig, ecliptic_plane_normal};
 pub use thrust_frame::thrust_flags;
 pub use thrust_frame::{
     LocalThrustFrame, ThrustDirection, local_thrust_frame, thrust_direction_from_flags,

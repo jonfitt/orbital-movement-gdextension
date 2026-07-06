@@ -13,14 +13,18 @@ Test-ProjectVersionSync -Root $Root
 
 Write-Host "==> cargo fmt --check"
 cargo fmt --all -- --check
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo clippy"
 cargo clippy --all-targets -- -D warnings
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo build"
 cargo build --verbose
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo test"
 cargo test --verbose
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "All checks passed."

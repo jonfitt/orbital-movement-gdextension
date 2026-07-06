@@ -3,11 +3,11 @@
 use crate::error::ProjectError;
 use crate::math::Vec3;
 use crate::orbits::{orbital_period, specific_orbital_energy};
-use crate::transfer_burn::TransferBurnStatus;
 use crate::surface_geometry::{
-    SurfaceMesh, SurfaceTessellationConfig, ground_track_is_closed,
-    tessellate_spherical_corridor, tessellate_spherical_polyline,
+    SurfaceMesh, SurfaceTessellationConfig, ground_track_is_closed, tessellate_spherical_corridor,
+    tessellate_spherical_polyline,
 };
+use crate::transfer_burn::TransferBurnStatus;
 use crate::visibility::horizon_half_angle;
 
 /// Surface projection of an orbit sampled in the planet-fixed frame.
@@ -62,18 +62,44 @@ pub fn project_to_surface(position: Vec3, surface_radius: f64) -> Vec3 {
     position.normalized() * surface_radius
 }
 
+/// Parameters for [`orbital_surface_track`].
+#[derive(Debug, Clone, Copy)]
+pub struct OrbitalSurfaceTrackInput {
+    /// Standard gravitational parameter.
+    pub mu: f64,
+    /// Planet surface radius.
+    pub surface_radius: f64,
+    /// Planet spin axis (need not be normalized).
+    pub spin_axis: Vec3,
+    /// Spin rate in radians per second.
+    pub angular_rate_rad_s: f64,
+    /// Current spin angle in radians.
+    pub spin_angle_rad: f64,
+    /// Body position in the inertial frame.
+    pub position: Vec3,
+    /// Body velocity in the inertial frame.
+    pub velocity: Vec3,
+    /// Whether thrust or a transfer is reshaping the path.
+    pub ephemeral: bool,
+    /// Maximum number of ground-track samples along one period.
+    pub max_points: usize,
+}
+
 /// Builds the ground track and visibility corridor for a two-body osculating orbit.
 pub fn orbital_surface_track(
-    mu: f64,
-    surface_radius: f64,
-    spin_axis: Vec3,
-    angular_rate_rad_s: f64,
-    spin_angle_rad: f64,
-    position: Vec3,
-    velocity: Vec3,
-    ephemeral: bool,
-    max_points: usize,
+    input: &OrbitalSurfaceTrackInput,
 ) -> Result<OrbitalSurfaceTrack, ProjectError> {
+    let OrbitalSurfaceTrackInput {
+        mu,
+        surface_radius,
+        spin_axis,
+        angular_rate_rad_s,
+        spin_angle_rad,
+        position,
+        velocity,
+        ephemeral,
+        max_points,
+    } = *input;
     let max_points = max_points.clamp(8, 2048);
     let radius = position.length();
     if radius <= surface_radius {
@@ -134,8 +160,7 @@ pub fn orbital_surface_track(
         let inertial = (periapsis_hat * cos_nu + in_plane_perp * true_anomaly.sin()) * orbit_radius;
         let time_along_orbit = period_s * fraction;
         let spin_at_sample = spin_angle_rad + angular_rate_rad_s * time_along_orbit;
-        let planet_fixed =
-            inertial.rotate_about_axis(spin_axis.normalized(), -spin_at_sample);
+        let planet_fixed = inertial.rotate_about_axis(spin_axis.normalized(), -spin_at_sample);
 
         let subsatellite = project_to_surface(planet_fixed, surface_radius);
         ground_track.push(subsatellite);
@@ -223,16 +248,13 @@ pub fn orbital_surface_track(
 }
 
 /// Whether the body's trajectory is actively being changed by thrust.
-pub fn is_ephemeral_trajectory(
-    thrust: Vec3,
-    transfer_status: TransferBurnStatus,
-) -> bool {
+pub fn is_ephemeral_trajectory(thrust: Vec3, transfer_status: TransferBurnStatus) -> bool {
     thrust.length_squared() > f64::EPSILON || transfer_status == TransferBurnStatus::Burning
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{orbital_surface_track, project_to_surface};
+    use super::{OrbitalSurfaceTrackInput, orbital_surface_track, project_to_surface};
     use crate::central_body::CentralBody;
     use crate::orbits::{OrbitParams, OrbitType, initial_state_for_orbit};
     use crate::transfer_burn::TransferBurnStatus;
@@ -255,22 +277,25 @@ mod tests {
             OrbitParams::circular(0.1),
         )
         .unwrap();
-        let track = orbital_surface_track(
-            central.mu(scale),
-            central.surface_radius(),
-            central.spin_axis_normalized(),
-            0.0,
-            0.0,
-            state.position,
-            state.velocity,
-            false,
-            180,
-        )
+        let track = orbital_surface_track(&OrbitalSurfaceTrackInput {
+            mu: central.mu(scale),
+            surface_radius: central.surface_radius(),
+            spin_axis: central.spin_axis_normalized(),
+            angular_rate_rad_s: 0.0,
+            spin_angle_rad: 0.0,
+            position: state.position,
+            velocity: state.velocity,
+            ephemeral: false,
+            max_points: 180,
+        })
         .unwrap();
         assert!(track.ground_track.len() >= 100);
         assert_eq!(track.ground_track.len(), track.visibility_port.len());
         for point in &track.ground_track {
-            assert!(point.y.abs() < 0.05, "equatorial track should stay near the equator");
+            assert!(
+                point.y.abs() < 0.05,
+                "equatorial track should stay near the equator"
+            );
         }
         let first = track.ground_track[0];
         let last = track.ground_track[track.ground_track.len() - 1];
@@ -292,17 +317,17 @@ mod tests {
             OrbitParams::circular(0.05),
         )
         .unwrap();
-        let track = orbital_surface_track(
-            central.mu(scale),
+        let track = orbital_surface_track(&OrbitalSurfaceTrackInput {
+            mu: central.mu(scale),
             surface_radius,
-            central.spin_axis_normalized(),
-            0.0,
-            0.0,
-            state.position,
-            state.velocity,
-            false,
-            64,
-        )
+            spin_axis: central.spin_axis_normalized(),
+            angular_rate_rad_s: 0.0,
+            spin_angle_rad: 0.0,
+            position: state.position,
+            velocity: state.velocity,
+            ephemeral: false,
+            max_points: 64,
+        })
         .unwrap();
         let observer_radius = state.position.length();
         let rho = crate::visibility::horizon_half_angle(observer_radius, surface_radius);
@@ -320,7 +345,10 @@ mod tests {
     #[test]
     fn ephemeral_flag_follows_thrust_state() {
         use super::is_ephemeral_trajectory;
-        assert!(!is_ephemeral_trajectory(crate::math::Vec3::ZERO, TransferBurnStatus::Idle));
+        assert!(!is_ephemeral_trajectory(
+            crate::math::Vec3::ZERO,
+            TransferBurnStatus::Idle
+        ));
         assert!(is_ephemeral_trajectory(
             crate::math::Vec3::X,
             TransferBurnStatus::Idle

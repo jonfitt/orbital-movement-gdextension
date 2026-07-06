@@ -170,7 +170,10 @@ fn max_cross_track_angle(port_points: &[Vec3], starboard_points: &[Vec3]) -> f64
     let count = port_points.len().min(starboard_points.len());
     let mut max_angle = 0.0_f64;
     for index in 0..count {
-        max_angle = f64::max(max_angle, angular_distance(port_points[index], starboard_points[index]));
+        max_angle = f64::max(
+            max_angle,
+            angular_distance(port_points[index], starboard_points[index]),
+        );
     }
     max_angle
 }
@@ -192,7 +195,8 @@ pub fn tessellate_spherical_corridor(
     }
 
     let closed = ground_track_is_closed(ground_track, 0.15);
-    let cross_subdivisions = subdivisions_for_angle(max_cross_track_angle(port_points, starboard_points), config);
+    let cross_subdivisions =
+        subdivisions_for_angle(max_cross_track_angle(port_points, starboard_points), config);
     let (port_stations, starboard_stations) =
         build_surface_stations(port_points, starboard_points, closed, config);
     let along_count = port_stations.len();
@@ -228,8 +232,9 @@ pub fn tessellate_spherical_corridor(
             let i01 = row_a + cross_index + 1;
             let i10 = row_b + cross_index;
             let i11 = row_b + cross_index + 1;
-            mesh.indices
-                .extend_from_slice(&[i00 as u32, i10 as u32, i01 as u32, i01 as u32, i10 as u32, i11 as u32]);
+            mesh.indices.extend_from_slice(&[
+                i00 as u32, i10 as u32, i01 as u32, i01 as u32, i10 as u32, i11 as u32,
+            ]);
         }
     }
 

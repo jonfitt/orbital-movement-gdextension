@@ -317,17 +317,17 @@ impl Simulation {
             body.thrust(),
             self.transfer_burns.status(id),
         );
-        crate::ground_track::orbital_surface_track(
-            self.mu(),
-            self.central.surface_radius(),
-            self.spin_axis(),
-            self.angular_rate_rad_s(),
+        crate::ground_track::orbital_surface_track(&crate::ground_track::OrbitalSurfaceTrackInput {
+            mu: self.mu(),
+            surface_radius: self.central.surface_radius(),
+            spin_axis: self.spin_axis(),
+            angular_rate_rad_s: self.angular_rate_rad_s(),
             spin_angle_rad,
-            body.position(),
-            body.velocity(),
+            position: body.position(),
+            velocity: body.velocity(),
             ephemeral,
             max_points,
-        )
+        })
     }
 
     /// Planet surface radius in simulation units.

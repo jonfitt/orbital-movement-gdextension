@@ -45,7 +45,8 @@ pub fn visibility_cap_mesh(
         indices: Vec::new(),
     };
 
-    mesh.vertices.push(surface_vertex(center_dir, surface_radius));
+    mesh.vertices
+        .push(surface_vertex(center_dir, surface_radius));
     mesh.normals.push(center_dir);
 
     for ring in 1..=ring_count {
@@ -58,14 +59,16 @@ pub fn visibility_cap_mesh(
                 + tangent * (sin_theta * phi.cos())
                 + bitangent * (sin_theta * phi.sin()))
             .normalized();
-            mesh.vertices.push(surface_vertex(direction, surface_radius));
+            mesh.vertices
+                .push(surface_vertex(direction, surface_radius));
             mesh.normals.push(direction);
         }
     }
 
     for seg in 0..segment_count {
         let next_seg = (seg + 1) % segment_count;
-        mesh.indices.extend_from_slice(&[0, (1 + seg) as u32, (1 + next_seg) as u32]);
+        mesh.indices
+            .extend_from_slice(&[0, (1 + seg) as u32, (1 + next_seg) as u32]);
     }
 
     for ring in 1..ring_count {
@@ -77,8 +80,9 @@ pub fn visibility_cap_mesh(
             let i1 = ring_base + next_seg;
             let i2 = next_ring_base + seg;
             let i3 = next_ring_base + next_seg;
-            mesh.indices
-                .extend_from_slice(&[i0 as u32, i2 as u32, i1 as u32, i1 as u32, i2 as u32, i3 as u32]);
+            mesh.indices.extend_from_slice(&[
+                i0 as u32, i2 as u32, i1 as u32, i1 as u32, i2 as u32, i3 as u32,
+            ]);
         }
     }
 
