@@ -1,18 +1,208 @@
-[gd_scene load_steps=2 format=3 uid="uid://orbitalmovementgdextensionmainscn"]
+[gd_scene load_steps=6 format=3 uid="uid://orbitalmovementgdextensionmainscn"]
 
 [ext_resource type="Script" path="res://demo/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://demo/visible_cap.gd" id="2_cap"]
+[ext_resource type="Script" path="res://demo/planet_surface.gd" id="3_planet"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_planet"]
+radius = 1.0
+height = 2.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_satellite"]
+radius = 0.02
+height = 0.04
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_satellite"]
+albedo_color = Color(0.2, 0.8, 1, 1)
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 1.5, 3)
+[node name="Planet" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_planet")
+script = ExtResource("3_planet")
+
+[node name="CameraPivot" type="Node3D" parent="Planet"]
+
+[node name="Camera3D" type="Camera3D" parent="Planet/CameraPivot"]
+current = true
+
+[node name="VisibleCap" type="MeshInstance3D" parent="."]
+script = ExtResource("2_cap")
+
+[node name="Satellite" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_satellite")
+surface_material_override/0 = SubResource("StandardMaterial3D_satellite")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 5, 5)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="Label" type="Label" parent="CanvasLayer"]
 offset_left = 16.0
 offset_top = 16.0
-offset_right = 800.0
-offset_bottom = 80.0
+offset_right = 960.0
+offset_bottom = 88.0
 text = "Loading..."
+
+[node name="TimeScalePanel" type="HBoxContainer" parent="CanvasLayer"]
+offset_left = 16.0
+offset_top = 96.0
+offset_right = 520.0
+offset_bottom = 128.0
+theme_override_constants/separation = 12
+
+[node name="TimeLabel" type="Label" parent="CanvasLayer/TimeScalePanel"]
+custom_minimum_size = Vector2(280, 0)
+text = "Time scale"
+
+[node name="TimeSlider" type="HSlider" parent="CanvasLayer/TimeScalePanel"]
+layout_flags = 3
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 4.0
+step = 0.05
+value = 1.78
+
+[node name="ControlPanel" type="PanelContainer" parent="CanvasLayer"]
+offset_left = 16.0
+offset_top = 140.0
+offset_right = 360.0
+offset_bottom = 580.0
+
+[node name="OrbitPanel" type="VBoxContainer" parent="CanvasLayer/ControlPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OrbitTitle" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+text = "Orbit"
+
+[node name="OrbitSelect" type="OptionButton" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+
+[node name="AltitudeRow" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AltitudeLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/AltitudeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+text = "Altitude (R⊕)"
+
+[node name="AltitudeEdit" type="LineEdit" parent="CanvasLayer/ControlPanel/OrbitPanel/AltitudeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0.05"
+
+[node name="InclinationRow" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InclinationLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/InclinationRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+text = "Inclination (°)"
+
+[node name="InclinationEdit" type="LineEdit" parent="CanvasLayer/ControlPanel/OrbitPanel/InclinationRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "51.6"
+
+[node name="ApogeeRow" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ApogeeLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/ApogeeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+text = "Apogee (R⊕)"
+
+[node name="ApogeeEdit" type="LineEdit" parent="CanvasLayer/ControlPanel/OrbitPanel/ApogeeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0.20"
+
+[node name="OrbitButtons" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PlaceOrbitButton" type="Button" parent="CanvasLayer/ControlPanel/OrbitPanel/OrbitButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Place in orbit"
+
+[node name="TransferButton" type="Button" parent="CanvasLayer/ControlPanel/OrbitPanel/OrbitButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Transfer burn"
+
+[node name="TransferStatusRow" type="VBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TransferStatusLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/TransferStatusRow"]
+layout_mode = 2
+text = "Transfer: idle"
+
+[node name="TransferProgressBar" type="ProgressBar" parent="CanvasLayer/ControlPanel/OrbitPanel/TransferStatusRow"]
+layout_mode = 2
+max_value = 100.0
+show_percentage = false
+
+[node name="ThrustPanel" type="VBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ThrustTitle" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
+layout_mode = 2
+text = "Continuous thrust"
+
+[node name="ThrustMagnitudeRow" type="HBoxContainer" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ThrustLabel" type="Label" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/ThrustMagnitudeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+text = "Magnitude"
+
+[node name="ThrustEdit" type="LineEdit" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/ThrustMagnitudeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0.001"
+
+[node name="DirectionGrid" type="GridContainer" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
+layout_mode = 2
+columns = 2
+
+[node name="ProgradeCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Prograde"
+
+[node name="RetrogradeCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Retrograde"
+
+[node name="LeftCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Left"
+
+[node name="RightCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Right"
+
+[node name="UpCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Up (radial out)"
+
+[node name="DownCheck" type="CheckBox" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid"]
+layout_mode = 2
+text = "Down (radial in)"
+
+[node name="ThrustToggle" type="Button" parent="CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel"]
+layout_mode = 2
+text = "Thrust OFF"

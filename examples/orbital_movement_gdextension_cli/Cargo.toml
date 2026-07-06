@@ -3,7 +3,7 @@ name = "orbital_movement_gdextension_cli"
 version.workspace = true
 edition = "2024"
 publish = false
-description = "CLI demo for orbital_movement_gdextension"
+description = "Native API walkthrough for orbital_movement_gdextension (no Godot required)"
 
 license-file.workspace = true
 

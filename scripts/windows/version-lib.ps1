@@ -33,8 +33,7 @@ function Update-LockfileVersions {
     $packageNames = @(
         "orbital_movement_gdextension",
         "orbital_movement_gdextension_gd",
-        "orbital_movement_gdextension_cli",
-        "orbital_movement_gdextension_visualizer"
+        "orbital_movement_gdextension_cli"
     )
     $lines = Get-Content $LockPath
     $updateNext = $false

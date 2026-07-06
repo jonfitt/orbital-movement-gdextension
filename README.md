@@ -7,8 +7,7 @@ Orbital Movement Gdextension — Rust library with Godot 4 GDExtension bindings
 | Crate / path | Role |
 |--------------|------|
 | [`orbital_movement_gdextension`](./) | Core library |
-| [`examples/orbital_movement_gdextension_cli`](./examples/orbital_movement_gdextension_cli/) | Native CLI demo |
-| [`examples/orbital_movement_gdextension_visualizer`](./examples/orbital_movement_gdextension_visualizer/) | Bevy visualizer |
+| [`examples/orbital_movement_gdextension_cli`](./examples/orbital_movement_gdextension_cli/) | Native API demo — run without Godot |
 | [`extensions/orbital_movement_gdextension_gd`](./extensions/orbital_movement_gdextension_gd/) | Godot 4 GDExtension |
 | [`godot/`](./godot/) | Godot 4 demo project |
 
@@ -20,9 +19,33 @@ cargo test
 cargo run -p orbital_movement_gdextension_cli
 ```
 
+The CLI walks through orbit propagation, visibility, star motion, transfer viability,
+guided transfers, instantaneous burns, and manual thrust — the same concepts exposed in Godot
+as `OrbitalSimulation`. Run individual sections with, for example:
+`cargo run -p orbital_movement_gdextension_cli -- viability transfer`.
+
 Open `godot/project.godot` in Godot 4.3+ and run the demo scene.
 
-<!-- TODO: Document your library API and Godot classes (see docs/). -->
+## API overview
+
+Rust core (`orbital_movement_gdextension`):
+
+```rust
+use orbital_movement_gdextension::{
+    OrbitParams, OrbitType, Simulation, SimulationScale,
+};
+
+let mut sim = Simulation::earth_like(86_400.0)?;
+let id = sim.create_body_in_orbit(
+    OrbitType::LowCircular,
+    OrbitParams::low_circular(0.05),
+    1.0,
+)?;
+sim.step(60.0)?;
+let pos = sim.position(id)?;
+```
+
+Godot GDExtension class: `OrbitalSimulation` — see [`docs/godot.md`](./docs/godot.md).
 
 ## Development
 

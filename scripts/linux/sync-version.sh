@@ -15,7 +15,7 @@ sync_lockfile_versions() {
   local lockfile="${1:?}"
   local version="${2:?}"
   perl -i -pe '
-    if (/^name = "(?:orbital_movement_gdextension|orbital_movement_gdextension_gd|orbital_movement_gdextension_cli|orbital_movement_gdextension_visualizer)"\r?$/) { $want = 1 }
+    if (/^name = "(?:orbital_movement_gdextension|orbital_movement_gdextension_gd|orbital_movement_gdextension_cli)"\r?$/) { $want = 1 }
     elsif ($want && /^version = "/) {
       s/^version = "[^"]+"/version = "'"${version}"'"/;
       $want = 0;

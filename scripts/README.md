@@ -16,11 +16,6 @@
 ```
 
 
-```bash
-./scripts/linux/setup-bevy-deps.sh
-```
-
-
 ## Windows
 
 ```cmd

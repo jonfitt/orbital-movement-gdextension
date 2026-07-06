@@ -3,9 +3,6 @@ members = [
     ".",
     "examples/orbital_movement_gdextension_cli",
     "extensions/orbital_movement_gdextension_gd",
-
-    "examples/orbital_movement_gdextension_visualizer",
-
 ]
 default-members = [".", "extensions/orbital_movement_gdextension_gd"]
 resolver = "2"
@@ -18,10 +15,7 @@ license-file = "LICENSE"
 
 # Workspace layout:
 # - orbital_movement_gdextension (root): core library
-# - examples/orbital_movement_gdextension_cli: native CLI demo
-
-# - examples/orbital_movement_gdextension_visualizer: Bevy visualizer
-
+# - examples/orbital_movement_gdextension_cli: native API demo (no Godot)
 # - extensions/orbital_movement_gdextension_gd: Godot 4 GDExtension (cdylib)
 
 [package]
@@ -38,5 +32,9 @@ license-file.workspace = true
 
 [dependencies]
 thiserror = "2"
+
+[[example]]
+name = "transfer_validation"
+path = "examples/transfer_validation/main.rs"
 
 [dev-dependencies]
