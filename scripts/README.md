@@ -49,7 +49,12 @@ and [`.gitlab-ci.yml`](../.gitlab-ci.yml). See [`docs/ci.md`](../docs/ci.md).
 
 ## Git hooks
 
-`.githooks/pre-commit` runs the platform CI script (`ci-check`), including VERSION sync verification.
+`.githooks/pre-commit` verifies the local commit email (when [`.gitconfig`](../.gitconfig)
+exists), then runs the platform CI script (`ci-check`), including VERSION sync verification.
+
+Copy [`.gitconfig.example`](../.gitconfig.example) to `.gitconfig` (gitignored) and set your
+name and email. The setup script creates `.gitconfig` from the example if missing and includes
+it in your local `.git/config` so it overrides a global Git identity for this repo only.
 
 ```bash
 ./scripts/linux/setup-git-hooks.sh
