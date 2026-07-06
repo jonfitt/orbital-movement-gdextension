@@ -12,6 +12,7 @@ use crate::orbits::{
 };
 use crate::small_body::{BodyId, BodyState, SmallBody};
 use crate::star::StarConfig;
+use crate::surface_geometry::SurfaceMesh;
 use crate::transfer_burn::{TRANSFER_SNAP_EPSILON, TransferBurnStatus, TransferBurnTracker};
 use crate::transfer_viability::{
     TransferViabilityConfig, TransferViabilityReport, assess_transfer_viability,
@@ -300,6 +301,35 @@ impl Simulation {
         ))
     }
 
+    /// Ground track and visibility corridor on the planet surface for the body's osculating orbit.
+    ///
+    /// Samples one orbital period (or a limited arc for escape trajectories) using the body's
+    /// instantaneous position and velocity. When thrust or a guided transfer is active, the
+    /// result is marked [`OrbitalSurfaceTrack::ephemeral`] because the path will change.
+    pub fn orbital_surface_track(
+        &self,
+        id: BodyId,
+        spin_angle_rad: f64,
+        max_points: usize,
+    ) -> Result<crate::ground_track::OrbitalSurfaceTrack, ProjectError> {
+        let body = self.body(id)?;
+        let ephemeral = crate::ground_track::is_ephemeral_trajectory(
+            body.thrust(),
+            self.transfer_burns.status(id),
+        );
+        crate::ground_track::orbital_surface_track(
+            self.mu(),
+            self.central.surface_radius(),
+            self.spin_axis(),
+            self.angular_rate_rad_s(),
+            spin_angle_rad,
+            body.position(),
+            body.velocity(),
+            ephemeral,
+            max_points,
+        )
+    }
+
     /// Planet surface radius in simulation units.
     pub fn planet_radius(&self) -> f64 {
         self.central.surface_radius()
@@ -478,19 +508,57 @@ impl Simulation {
         params: OrbitParams,
         config: &TransferViabilityConfig,
     ) -> Result<TransferViabilityReport, ProjectError> {
+        self.assess_transfer_viability_with_thrust(id, orbit_type, params, config, None)
+    }
+
+    /// Like [`Self::assess_transfer_viability`], but uses `transfer_max_thrust` when provided.
+    pub fn assess_transfer_viability_with_thrust(
+        &self,
+        id: BodyId,
+        orbit_type: OrbitType,
+        params: OrbitParams,
+        config: &TransferViabilityConfig,
+        transfer_max_thrust: Option<f64>,
+    ) -> Result<TransferViabilityReport, ProjectError> {
         let body = self.body(id)?;
         let params = self.prepare_orbit_params(orbit_type, params);
+        let max_thrust = transfer_max_thrust
+            .filter(|value| *value > 0.0)
+            .unwrap_or(body.max_thrust());
         assess_transfer_viability(
             &self.central,
             self.scale,
             body.position(),
             body.velocity(),
-            body.max_thrust(),
+            max_thrust,
             body.mass(),
             orbit_type,
             params,
             config,
         )
+    }
+
+    /// Tessellated visibility cap mesh for a body in the planet-fixed frame.
+    pub fn visibility_cap_mesh_for_body(
+        &self,
+        id: BodyId,
+        spin_angle_rad: f64,
+        display_radius: f64,
+    ) -> Result<SurfaceMesh, ProjectError> {
+        let body = self.body(id)?;
+        let observer = self.position_in_planet_fixed_frame(body.position(), spin_angle_rad);
+        let rho = crate::visibility::horizon_half_angle(
+            body.position().length(),
+            self.central.surface_radius(),
+        );
+        Ok(crate::visibility::visibility_cap_mesh(
+            observer,
+            display_radius,
+            rho,
+            self.spin_axis(),
+            32,
+            64,
+        ))
     }
 
     /// Returns whether the body's current state matches the target orbit within guided-transfer tolerances.

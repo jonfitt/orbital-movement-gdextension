@@ -52,9 +52,11 @@ const ORBIT_OPTIONS: Array[Dictionary] = [
 ]
 
 const _AXIAL_TILT_RAD := 0.41
-const _DEFAULT_MAX_THRUST := 0.002
+const _DEFAULT_TRANSFER_THRUST := 0.002
 const _MAX_PRACTICAL_BURN_TIME_S := 3600.0
 const _SATELLITE_MASS := 1.0
+const _TRACK_DISPLAY_OFFSET := 1.014
+const _CAP_DISPLAY_OFFSET := 1.015
 
 @onready var _label: Label = $CanvasLayer/Label
 @onready var _time_label: Label = $CanvasLayer/TimeScalePanel/TimeLabel
@@ -67,6 +69,9 @@ const _SATELLITE_MASS := 1.0
 @onready var _apogee_edit: LineEdit = $CanvasLayer/ControlPanel/OrbitPanel/ApogeeRow/ApogeeEdit
 @onready var _place_orbit_button: Button = $CanvasLayer/ControlPanel/OrbitPanel/OrbitButtons/PlaceOrbitButton
 @onready var _transfer_button: Button = $CanvasLayer/ControlPanel/OrbitPanel/OrbitButtons/TransferButton
+@onready var _transfer_thrust_edit: LineEdit = (
+	$CanvasLayer/ControlPanel/OrbitPanel/TransferThrustRow/TransferThrustEdit
+)
 @onready var _transfer_status: Label = $CanvasLayer/ControlPanel/OrbitPanel/TransferStatusRow/TransferStatusLabel
 @onready var _transfer_progress: ProgressBar = (
 	$CanvasLayer/ControlPanel/OrbitPanel/TransferStatusRow/TransferProgressBar
@@ -79,10 +84,12 @@ const _SATELLITE_MASS := 1.0
 @onready var _chk_up: CheckBox = $CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid/UpCheck
 @onready var _chk_down: CheckBox = $CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/DirectionGrid/DownCheck
 @onready var _thrust_toggle: Button = $CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/ThrustToggle
+@onready var _track_toggle: Button = $CanvasLayer/ControlPanel/OrbitPanel/ThrustPanel/TrackToggle
 @onready var _planet: MeshInstance3D = $Planet
 @onready var _camera_pivot: Node3D = $Planet/CameraPivot
 @onready var _satellite: MeshInstance3D = $Satellite
 @onready var _visible_cap: VisibleCapMesh = $VisibleCap
+@onready var _ground_track: OrbitalGroundTrackMesh = $GroundTrack
 @onready var _sun: DirectionalLight3D = $Sun
 @onready var _camera: Camera3D = $Planet/CameraPivot/Camera3D
 
@@ -92,6 +99,7 @@ var _sim_spin_angle: float = 0.0
 var _planet_view_angle: float = 0.0
 var _time_scale: float = 60.0
 var _thrust_active: bool = false
+var _track_visible: bool = false
 
 var _cam_yaw: float = 0.8
 var _cam_pitch: float = 0.35
@@ -118,12 +126,16 @@ func _ready() -> void:
 	_inclination_edit.text = str(leo_defaults.get("inclination_deg", 51.6))
 	_apogee_edit.text = "0.20"
 	_thrust_edit.text = "0.001"
+	_transfer_thrust_edit.text = str(_DEFAULT_TRANSFER_THRUST)
 	_thrust_toggle.text = "Thrust OFF"
+	_track_toggle.text = "Ground track OFF"
 
 	_orbit_select.item_selected.connect(_on_orbit_selected)
 	_place_orbit_button.pressed.connect(_on_place_in_orbit_pressed)
 	_transfer_button.pressed.connect(_on_transfer_pressed)
+	_transfer_thrust_edit.text_changed.connect(_on_transfer_thrust_changed)
 	_thrust_toggle.pressed.connect(_on_thrust_toggle_pressed)
+	_track_toggle.pressed.connect(_on_track_toggle_pressed)
 
 	_time_slider.min_value = 0.0
 	_time_slider.max_value = 4.0
@@ -141,6 +153,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	var sim_delta := delta * _time_scale
 	if _thrust_active and _body_id >= 0:
+		_apply_manual_thrust_limit()
 		var magnitude := _read_thrust_magnitude()
 		var flags := _collect_thrust_flags()
 		if magnitude > 0.0 and flags != 0:
@@ -184,7 +197,7 @@ func _spawn_satellite() -> void:
 		_SATELLITE_MASS,
 	)
 	if _body_id >= 0:
-		_sim.set_max_thrust(_body_id, _DEFAULT_MAX_THRUST)
+		_apply_transfer_thrust_limit()
 
 
 func _read_altitude() -> float:
@@ -205,6 +218,20 @@ func _read_inclination_rad() -> float:
 
 func _read_thrust_magnitude() -> float:
 	return maxf(_thrust_edit.text.to_float(), 0.0)
+
+
+func _read_transfer_thrust() -> float:
+	return maxf(_transfer_thrust_edit.text.to_float(), 0.0)
+
+
+func _apply_transfer_thrust_limit() -> void:
+	if _body_id >= 0:
+		_sim.set_max_thrust(_body_id, _read_transfer_thrust())
+
+
+func _apply_manual_thrust_limit() -> void:
+	if _body_id >= 0:
+		_sim.set_max_thrust(_body_id, maxf(_read_transfer_thrust(), _read_thrust_magnitude()))
 
 
 func _collect_thrust_flags() -> int:
@@ -266,6 +293,10 @@ func _on_orbit_selected(_index: int) -> void:
 	_update_transfer_button_state()
 
 
+func _on_transfer_thrust_changed(_new_text: String) -> void:
+	_update_transfer_button_state()
+
+
 func _assess_transfer() -> Dictionary:
 	if _body_id < 0:
 		return {}
@@ -278,6 +309,7 @@ func _assess_transfer() -> Dictionary:
 		inputs.apogee,
 		inputs.inclination,
 		_MAX_PRACTICAL_BURN_TIME_S,
+		_read_transfer_thrust(),
 	)
 
 
@@ -308,6 +340,8 @@ func _on_place_in_orbit_pressed() -> void:
 	_sim.reset_simulation()
 	_sim_spin_angle = 0.0
 	_spawn_satellite()
+	if _track_visible:
+		_refresh_ground_track()
 	_update_scene()
 
 
@@ -323,6 +357,7 @@ func _on_transfer_pressed() -> void:
 		_transfer_progress.value = 0.0
 		return
 
+	_apply_transfer_thrust_limit()
 	var inputs := _gather_orbit_inputs()
 	var started := _sim.begin_transfer_to_orbit(
 		_body_id,
@@ -375,6 +410,26 @@ func _update_transfer_indicator() -> void:
 func _on_thrust_toggle_pressed() -> void:
 	_thrust_active = not _thrust_active
 	_thrust_toggle.text = "Thrust ON" if _thrust_active else "Thrust OFF"
+	if _track_visible:
+		_refresh_ground_track()
+
+
+func _on_track_toggle_pressed() -> void:
+	_track_visible = not _track_visible
+	_track_toggle.text = "Ground track ON" if _track_visible else "Ground track OFF"
+	if _track_visible:
+		_refresh_ground_track()
+	else:
+		_ground_track.clear()
+
+
+func _refresh_ground_track() -> void:
+	if _body_id < 0 or not _track_visible:
+		return
+
+	var display_radius := _sim.get_planet_radius() * _TRACK_DISPLAY_OFFSET
+	var track := _sim.get_orbital_surface_track(_body_id, _sim_spin_angle, 256, display_radius)
+	_ground_track.update_from_track_data(track)
 
 
 func _update_scene() -> void:
@@ -388,14 +443,19 @@ func _update_scene() -> void:
 	_planet.basis = _planet_display_basis()
 
 	var planet_radius := _sim.get_planet_radius()
-	var horizon := _sim.get_horizon_half_angle(_body_id)
-	_visible_cap.update_from_observer(display_pos, planet_radius, horizon)
+	var cap_radius := planet_radius * _CAP_DISPLAY_OFFSET
+	var cap_mesh := _sim.get_visibility_cap_mesh(_body_id, _sim_spin_angle, cap_radius)
+	_visible_cap.update_from_cap_mesh(cap_mesh)
+
+	if _track_visible:
+		_refresh_ground_track()
 
 	var sun_pos := _sim.get_star_apparent_position(_sim_spin_angle)
 	_sun.position = sun_pos.normalized() * 20.0
 	_sun.look_at(Vector3.ZERO, Vector3.UP)
 
 	var area := _sim.get_visible_surface_area(_body_id)
+	var horizon := _sim.get_horizon_half_angle(_body_id)
 	var state := _sim.get_state(_body_id)
 	var state_text := (
 		"SurfaceContact" if state == OrbitalSimulation.STATE_SURFACE_CONTACT else "Flying"

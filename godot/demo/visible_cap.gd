@@ -2,8 +2,6 @@ class_name VisibleCapMesh
 extends MeshInstance3D
 
 const _SURFACE_OFFSET := 1.015
-const _RING_COUNT := 32
-const _SEGMENT_COUNT := 64
 
 
 func _ready() -> void:
@@ -28,64 +26,15 @@ func _ensure_material() -> void:
 	material_override = mat
 
 
-func update_from_observer(
-	observer_position: Vector3,
-	planet_radius: float,
-	horizon_half_angle: float,
-) -> void:
-	if observer_position.length_squared() <= 0.0 or horizon_half_angle <= 0.0:
+func update_from_cap_mesh(cap_data: Dictionary) -> void:
+	var vertices: PackedVector3Array = cap_data.get("cap_vertices", PackedVector3Array())
+	var normals: PackedVector3Array = cap_data.get("cap_normals", PackedVector3Array())
+	var indices: PackedInt32Array = cap_data.get("cap_indices", PackedInt32Array())
+	if vertices.is_empty() or indices.is_empty():
 		mesh = null
 		return
 
-	var center_dir := observer_position.normalized()
-	var tangent := center_dir.cross(Vector3.UP)
-	if tangent.length_squared() < 0.01:
-		tangent = center_dir.cross(Vector3.RIGHT)
-	tangent = tangent.normalized()
-	var bitangent := center_dir.cross(tangent).normalized()
-
-	var render_radius := planet_radius * _SURFACE_OFFSET
-	var rho := minf(horizon_half_angle, PI * 0.49)
-	var vertices: PackedVector3Array = []
-	var normals: PackedVector3Array = []
-	var indices: PackedInt32Array = []
-
-	# Single vertex at the sub-satellite point (cap center).
-	vertices.append(center_dir * render_radius)
-	normals.append(center_dir)
-
-	for ring in range(1, _RING_COUNT + 1):
-		var theta := rho * float(ring) / float(_RING_COUNT)
-		var sin_theta := sin(theta)
-		var cos_theta := cos(theta)
-		for seg in _SEGMENT_COUNT:
-			var phi := TAU * float(seg) / float(_SEGMENT_COUNT)
-			var direction := (
-				center_dir * cos_theta
-				+ tangent * (sin_theta * cos(phi))
-				+ bitangent * (sin_theta * sin(phi))
-			)
-			vertices.append(direction * render_radius)
-			normals.append(direction)
-
-	# Fan from cap center to the first ring.
-	for seg in _SEGMENT_COUNT:
-		var next_seg := (seg + 1) % _SEGMENT_COUNT
-		indices.append_array([0, 1 + seg, 1 + next_seg])
-
-	# Quads between remaining rings.
-	for ring in range(1, _RING_COUNT):
-		var ring_base := 1 + (ring - 1) * _SEGMENT_COUNT
-		var next_ring_base := 1 + ring * _SEGMENT_COUNT
-		for seg in _SEGMENT_COUNT:
-			var next_seg := (seg + 1) % _SEGMENT_COUNT
-			var i0 := ring_base + seg
-			var i1 := ring_base + next_seg
-			var i2 := next_ring_base + seg
-			var i3 := next_ring_base + next_seg
-			indices.append_array([i0, i2, i1, i1, i2, i3])
-
-	var arrays := []
+	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = normals

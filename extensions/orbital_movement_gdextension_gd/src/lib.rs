@@ -18,7 +18,8 @@ use godot::prelude::*;
 use orbital_movement_gdextension::{
     BodyId, BodyState, CentralBody, HIGH_INCLINATION_RAD, LOW_EARTH_INCLINATION_RAD,
     MOLNIYA_APOGEE_ALTITUDE_R, MOLNIYA_PERIGEE_ALTITUDE_R, OrbitParams, OrbitType, Simulation,
-    SimulationScale, StarConfig, TransferAvailability, TransferBurnStatus, TransferViabilityConfig,
+    SimulationScale, StarConfig, SurfaceTessellationConfig, TransferAvailability,
+    TransferBurnStatus, TransferViabilityConfig,
     Vec3, build_orbit_params_from_ui, orbit_ui_defaults, orbit_uses_computed_altitude,
     orbit_uses_elliptical_params, orbit_uses_inclination_param,
 };
@@ -503,6 +504,94 @@ impl OrbitalSimulation {
             .unwrap_or(0.0)
     }
 
+    /// Projects the osculating orbit onto the planet surface in the planet-fixed frame.
+    ///
+    /// Returns a Dictionary with keys:
+    /// `ground_track`, `visibility_port`, `visibility_starboard` (PackedVector3Array),
+    /// `ground_line_vertices`, `corridor_vertices`, `corridor_normals`, `corridor_indices`,
+    /// and `ephemeral` (bool, true when thrust or transfer burn is reshaping the path).
+    #[func]
+    fn get_orbital_surface_track(
+        &self,
+        body_id: i64,
+        spin_angle_rad: f64,
+        max_points: i64,
+        display_radius: f64,
+    ) -> godot::builtin::VarDictionary {
+        use godot::builtin::{PackedVector3Array, Variant, VarDictionary};
+
+        let mut result = VarDictionary::new();
+        let max_points = max_points.clamp(8, 2048) as usize;
+        let track = self
+            .with_body(body_id, |sim, id| {
+                sim.orbital_surface_track(id, spin_angle_rad, max_points)
+            })
+            .and_then(|r| r.ok());
+        let Some(track) = track else {
+            let empty = Variant::from(PackedVector3Array::new());
+            result.set("ground_track", &empty);
+            result.set("visibility_port", &empty);
+            result.set("visibility_starboard", &empty);
+            result.set("ground_line_vertices", &empty);
+            result.set("corridor_vertices", &empty);
+            result.set("corridor_normals", &empty);
+            result.set("corridor_indices", &Variant::from(godot::builtin::PackedInt32Array::new()));
+            result.set("ephemeral", false);
+            return result;
+        };
+
+        let ground_track = Self::vec3_slice_to_packed(&track.ground_track);
+        let visibility_port = Self::vec3_slice_to_packed(&track.visibility_port);
+        let visibility_starboard = Self::vec3_slice_to_packed(&track.visibility_starboard);
+        result.set("ground_track", &Variant::from(ground_track));
+        result.set("visibility_port", &Variant::from(visibility_port));
+        result.set("visibility_starboard", &Variant::from(visibility_starboard));
+        result.set("ephemeral", track.ephemeral);
+
+        let radius = if display_radius > 0.0 {
+            display_radius
+        } else {
+            self.get_planet_radius()
+        };
+        let config = SurfaceTessellationConfig::default();
+        let ground_line = track.tessellate_ground_line(radius, &config);
+        let corridor = track.tessellate_corridor(radius, &config);
+        result.set(
+            "ground_line_vertices",
+            &Variant::from(Self::vec3_slice_to_packed(&ground_line)),
+        );
+        Self::push_surface_mesh(&mut result, "corridor", &corridor);
+        result
+    }
+
+    /// Returns a tessellated visibility-cap mesh for a body in the planet-fixed frame.
+    #[func]
+    fn get_visibility_cap_mesh(
+        &self,
+        body_id: i64,
+        spin_angle_rad: f64,
+        display_radius: f64,
+    ) -> godot::builtin::VarDictionary {
+        use godot::builtin::VarDictionary;
+        let mut result = VarDictionary::new();
+        let radius = if display_radius > 0.0 {
+            display_radius
+        } else {
+            self.get_planet_radius()
+        };
+        let mesh = self
+            .with_body(body_id, |sim, id| {
+                sim.visibility_cap_mesh_for_body(id, spin_angle_rad, radius)
+            })
+            .and_then(|r| r.ok());
+        let Some(mesh) = mesh else {
+            Self::push_surface_mesh(&mut result, "cap", &orbital_movement_gdextension::SurfaceMesh::default());
+            return result;
+        };
+        Self::push_surface_mesh(&mut result, "cap", &mesh);
+        result
+    }
+
     /// Returns planet surface radius in simulation units.
     #[func]
     fn get_planet_radius(&self) -> f64 {
@@ -777,6 +866,7 @@ impl OrbitalSimulation {
         apogee_altitude: f64,
         inclination_rad: f64,
         max_practical_burn_time_s: f64,
+        transfer_max_thrust: f64,
     ) -> godot::builtin::VarDictionary {
         use godot::builtin::VarDictionary;
         let mut result = VarDictionary::new();
@@ -800,9 +890,20 @@ impl OrbitalSimulation {
             },
             ..TransferViabilityConfig::default()
         };
+        let thrust_override = if transfer_max_thrust > 0.0 {
+            Some(transfer_max_thrust)
+        } else {
+            None
+        };
         let report = self
             .with_body(body_id, |sim, id| {
-                sim.assess_transfer_viability(id, orbit.into(), params, &config)
+                sim.assess_transfer_viability_with_thrust(
+                    id,
+                    orbit.into(),
+                    params,
+                    &config,
+                    thrust_override,
+                )
             })
             .and_then(|r| r.ok());
         let Some(report) = report else {
@@ -944,6 +1045,43 @@ impl OrbitalSimulation {
             inclination_rad,
         );
         self.create_body_in_orbit_internal(orbit, params, mass)
+    }
+
+    /// Converts simulation points to a Godot packed array.
+    fn vec3_slice_to_packed(points: &[Vec3]) -> godot::builtin::PackedVector3Array {
+        use godot::builtin::PackedVector3Array;
+        let mut packed = PackedVector3Array::new();
+        for point in points {
+            packed.push(to_gd_vec3(*point));
+        }
+        packed
+    }
+
+    /// Adds `vertices`, `normals`, and `indices` arrays for a surface mesh to a dictionary.
+    fn push_surface_mesh(
+        result: &mut godot::builtin::VarDictionary,
+        prefix: &str,
+        mesh: &orbital_movement_gdextension::SurfaceMesh,
+    ) {
+        use godot::builtin::{PackedInt32Array, Variant};
+        let (vertices_key, normals_key, indices_key) = match prefix {
+            "corridor" => ("corridor_vertices", "corridor_normals", "corridor_indices"),
+            "cap" => ("cap_vertices", "cap_normals", "cap_indices"),
+            _ => ("mesh_vertices", "mesh_normals", "mesh_indices"),
+        };
+        result.set(
+            vertices_key,
+            &Variant::from(Self::vec3_slice_to_packed(&mesh.vertices)),
+        );
+        result.set(
+            normals_key,
+            &Variant::from(Self::vec3_slice_to_packed(&mesh.normals)),
+        );
+        let mut indices = PackedInt32Array::new();
+        for index in &mesh.indices {
+            indices.push(*index as i32);
+        }
+        result.set(indices_key, &Variant::from(indices));
     }
 
     /// Runs `f` on a valid body id; returns `None` when the simulation is missing or id < 0.
